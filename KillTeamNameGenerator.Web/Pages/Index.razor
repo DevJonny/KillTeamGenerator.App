@@ -1,0 +1,101 @@
+﻿@page "/"
+@using System
+@using System.Collections.Generic
+@using System.Linq
+@using System.Threading.Tasks
+@using KTNameGenerator.Core
+@using KTNameGenerator.Core.Data
+@using KTNameGenerator.Core.Model
+@using Microsoft.AspNetCore.Components
+
+<h1>Kill Team Name Generator</h1>
+
+<select onchange="@SelectFaction">
+    @foreach (var faction in Factions)
+    {
+        <option value="@faction.Type">@faction.Name</option>
+    }
+</select>
+
+@if (HasSubFactions)
+{
+    <select onchange="@SelectSubFaction">
+        @foreach (var subFaction in SelectedFaction.SubFactions ?? new SubFaction[0])
+        {
+            <option value="@subFaction.Type">@subFaction.Name</option>
+        }
+    </select>
+}
+
+<select onchange="@SetQuantity">
+    @foreach (var quantity in Enumerable.Range(1, 20))
+    {
+        <option value="@quantity">@quantity</option>
+    }
+</select>
+
+<button onclick="@GenerateNames">Generate @Quantity names</button>
+
+@foreach (var name in Names)
+{
+    <div>@name</div>
+}
+
+@functions
+{
+
+    private IEnumerable<Faction> Factions => FactionData.Factions;
+    private Faction SelectedFaction { get; set; }
+    private SubFaction SelectedSubFaction { get; set; }
+    private string[] Forenames { get; set; } = new string[0];
+    private string[] Surnames { get; set; } = new string[0];
+    private int Quantity { get; set; } = 1;
+    private List<string> Names { get; set; } = new List<string>();
+
+    bool HasSubFactions => SelectedFaction.HasSubFactions;
+    
+    protected override async Task OnInitAsync()
+    {
+        SelectedFaction = KillTeam.FactionByType(FactionType.AdeptusAstartes);
+        SelectedSubFaction = SelectedFaction.SubFactionByType(SubFactionType.Ultramarines);
+
+        await base.OnInitAsync();
+    }
+    
+    public void SelectFaction(UIChangeEventArgs e)
+    {
+        var factionType = (FactionType)Enum.Parse(typeof(FactionType), e.Value.ToString());
+
+        SelectedFaction = KillTeam.FactionByType(factionType);
+
+        if (HasSubFactions) return;
+        
+        Forenames = SelectedFaction.Forenames;
+        Surnames = SelectedFaction.Surnames;
+    }
+
+    public void SelectSubFaction(UIChangeEventArgs e)
+    {
+        var subFactionType = (SubFactionType) Enum.Parse(typeof(SubFactionType), e.Value.ToString());
+
+        SelectedSubFaction = SelectedFaction.SubFactionByType(subFactionType);
+
+        Forenames = SelectedSubFaction.Forenames;
+        Surnames = SelectedSubFaction.Surnames;
+    }
+
+    public void SetQuantity(UIChangeEventArgs e)
+    {
+        Quantity = int.Parse(e.Value.ToString());
+    }
+
+    public void GenerateNames()
+    {
+        Names.Clear();
+
+        if (HasSubFactions)
+            Names.AddRange(SelectedFaction.GenerateNames(Quantity, SelectedSubFaction.Type));
+        else
+            Names.AddRange(SelectedFaction.GenerateNames(Quantity));
+    }
+}
